@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<!-- Dinamico per multilingua -->
+<html lang="it" id="html-root">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>CEMINetwork Registro Contatti Aziendali</title>
+        <meta name="description" content="Sistema di gestione contatti aziendali - Inserimento e modifica online">
+        <meta name="author" content="Sistema Contatti">
+
+        <!-- favicon -->
+        <link rel="icon" type="image/x-icon" href="/img/faviconCMNtw.png" />
+        
+        <!-- External Libraries -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+        <!-- Firebase SDK v10 -->
+        <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+            
+        <!-- Custom Styles -->
+        <link rel="stylesheet" href="css/styles.css">
+    </head>
+    <body>
+        <div class="container">
+            <!-- Notification Container -->
+            <div class="notification-container" id="notificationContainer"></div>
+
+            <!-- Confirm Modal -->
+            <div id="confirmModal" class="confirm-modal">
+                <div class="confirm-content">
+                    <div class="confirm-icon" id="confirmIcon">⚠</div>
+                    <div class="confirm-title" id="confirmTitle">Conferma Azione</div>
+                    <div class="confirm-message" id="confirmMessage">Sei sicuro di voler procedere?</div>
+                    <div class="confirm-actions">
+                        <button class="btn" id="confirmCancel">Annulla</button>
+                        <button class="btn btn-danger" id="confirmConfirm">Conferma</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header -->
+            <div class="header">
+                <img src="/img/MAIN_LOGO.png" alt="MAIN_LOGO" class="maincemilogo">
+                <h1>Registro digitale contatti aziendali</h1>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <div class="control-group">
+                    <label>Anno</label>
+                    <select id="yearSelect">
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025" selected>2025</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Mese</label>
+                    <select id="monthSelect">
+                        <option value="1">Gennaio</option>
+                        <option value="2">Febbraio</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Aprile</option>
+                        <option value="5">Maggio</option>
+                        <option value="6">Giugno</option>
+                        <option value="7" selected>Luglio</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Settembre</option>
+                        <option value="10">Ottobre</option>
+                        <option value="11">Novembre</option>
+                        <option value="12">Dicembre</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Navigazione</label>
+                    <div class="period-navigation">
+                        <button class="btn btn-small" id="prevMonthBtn" title="Mese precedente">‹</button>
+                        <button class="btn btn-small btn-warning" id="currentPeriodBtn" title="Vai al mese corrente">Oggi</button>
+                        <button class="btn btn-small" id="nextMonthBtn" title="Mese successivo">›</button>
+                    </div>
+                </div>
+
+                <div class="add-contact-container">
+                    <div class="add-contact-label">Azione</div>
+                    <button class="btn btn-success" id="addContactBtn" title="Ctrl+N">
+                        + Nuovo Contatto
+                    </button>
+                </div>
+
+                <div class="current-period" id="currentPeriod">
+                    Luglio 2025
+                </div>
+            </div>
+
+            <!-- Import/Export Advanced -->
+            <div class="import-export" style="display: none;">
+                <div class="import-export-header">
+                    <div class="import-export-title">📁 Import/Export Avanzato</div>
+                </div>
+
+                <div class="import-export-content">
+                    <div class="import-section">
+                        <div class="section-title">📥 Importa Dati</div>
+                        <div class="section-description">
+                            Carica file Excel (.xlsx), CSV o JSON per importare contatti in massa
+                        </div>
+                        
+                        <input type="file" id="importFile" class="file-input" 
+                            accept=".xlsx,.xls,.csv,.json" multiple title="Ctrl+I">
+                        <label for="importFile" class="file-input-label">
+                            📎 Seleziona File
+                        </label>
+                        
+                        <div id="importProgress" style="display: none;">
+                            <div class="progress-container">
+                                <div class="progress-bar" id="importProgressBar" style="width: 0%">
+                                    <div class="progress-text" id="importProgressText">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="export-options">
+                            <button class="btn btn-small" id="downloadTemplate">
+                                📋 Scarica Template
+                            </button>
+                            <button class="btn btn-small btn-warning" id="previewImport" disabled>
+                                👁️ Anteprima Import
+                            </button>
+                            <button class="btn btn-small btn-success" id="executeImport" disabled>
+                                ✅ Esegui Import
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="export-section">
+                        <div class="section-title">📤 Esporta Dati</div>
+                        <div class="section-description">
+                            Esporta i dati filtrati in diversi formati per l'analisi
+                        </div>
+                        
+                        <div class="export-options">
+                            <button class="btn btn-success btn-icon" id="exportExcel" title="Ctrl+E">
+                                📊 Excel (.xlsx)
+                            </button>
+                            <button class="btn btn-icon" id="exportCSV">
+                                📄 CSV
+                            </button>
+                            <button class="btn btn-warning btn-icon" id="exportJSON">
+                                🔧 JSON
+                            </button>
+                            <button class="btn btn-danger btn-icon" id="exportPDF">
+                                📋 PDF Report
+                            </button>
+                        </div>
+                        
+                        <div style="margin-top: 15px;">
+                            <label>
+                                <input type="checkbox" id="includeCharts" checked>
+                                Includi grafici nel report PDF
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Import Preview Modal -->
+            <div id="importPreviewModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Anteprima Import</h3>
+                        <button class="close" id="closeImportPreview">&times;</button>
+                    </div>
+                    
+                    <div id="importPreviewContent">
+                        <div class="section-description">
+                            Verifica i dati prima dell'importazione
+                        </div>
+                        
+                        <div id="importStats" style="margin: 15px 0;"></div>
+                        
+                        <div class="table-wrapper" style="max-height: 400px;">
+                            <table>
+                                <thead id="importPreviewHead"></thead>
+                                <tbody id="importPreviewBody"></tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button class="btn" id="cancelImport">Annulla</button>
+                            <button class="btn btn-success" id="confirmImport">Conferma Import</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Filters -->
+            <div class="advanced-filters">
+                <div class="filters-header">
+                    <div class="filters-title">🔍 Filtri Avanzati</div>
+                    <button class="filters-toggle" id="toggleFilters">
+                        <span id="toggleText">Mostra Filtri</span>
+                        <span id="toggleIcon">▼</span>
+                    </button>
+                </div>
+
+                <div class="filters-content" id="filtersContent">
+                    <div class="filters-grid">
+                        <div class="filter-group">
+                            <label>Ricerca Generale</label>
+                            <input type="text" id="searchInput" class="search-input" 
+                                placeholder="Cerca per cliente, commerciale, luogo..." title="Ctrl+F">
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Tipo Cliente</label>
+                            <select id="clientFilter">
+                                <option value="all">Tutti i clienti</option>
+                                <option value="new">Solo nuovi clienti</option>
+                                <option value="existing">Solo clienti esistenti</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Commerciale</label>
+                            <select id="commercialFilter">
+                                <option value="all">Tutti i commerciali</option>
+                                <option value="ALESSANDRO BACCO">ALESSANDRO BACCO</option>
+                                <option value="ANDREA">ANDREA</option>
+                                <option value="ANDREA/LUCA">ANDREA/LUCA</option>
+                                <option value="LUCA">LUCA</option>
+                                <option value="LUCA/MATTIA">LUCA/MATTIA</option>
+                                <option value="MATTIA">MATTIA</option>
+                                <option value="RENATO">RENATO</option>
+                                <option value="RENATO/LUCA">RENATO/LUCA</option>
+                                <option value="RENATO/MATTIA/LUCA">RENATO/MATTIA/LUCA</option>
+                                <option value="RENATO/SERENA">RENATO/SERENA</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Modalità Comunicazione</label>
+                            <select id="modalityFilter">
+                                <option value="all">Tutte le modalità</option>
+                                <option value="CLIENTE">CLIENTE</option>
+                                <option value="TELEFONATA">TELEFONATA</option>
+                                <option value="EMAIL SALES">EMAIL SALES</option>
+                                <option value="EMAIL INFO">EMAIL INFO</option>
+                                <option value="SITO CEMI NETWORK">SITO CEMI NETWORK</option>
+                                <option value="LANDING PAGE CEMI NETWORK">LANDING PAGE CEMI NETWORK</option>
+                                <option value="SITO STEELA">SITO STEELA</option>
+                                <option value="SITO CEMI COMPONENTS">SITO CEMI COMPONENTS</option>
+                                <option value="SITO BSR ENGINEERING">SITO BSR ENGINEERING</option>
+                                <option value="ARCHIEXPO">ARCHIEXPO</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Data Inizio</label>
+                            <input type="date" id="dateFromFilter">
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Data Fine</label>
+                            <input type="date" id="dateToFilter">
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Provincia</label>
+                            <input type="text" id="provinceFilter" placeholder="Es: VE, PD, TV...">
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Tipo Progetto</label>
+                            <select id="projectTypeFilter">
+                                <option value="all">Azienda Network</option>
+                                <option value="BSR">BSR</option>
+                                <option value="SG">SG</option>
+                                <option value="FM">FM</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="filter-actions">
+                        <button class="btn" id="clearFilters">Cancella Filtri</button>
+                        <button class="btn btn-success" id="applyFilters">Applica Filtri</button>
+                        <button class="btn btn-warning" id="saveFilters">Salva Filtri</button>
+                    </div>
+
+                    <div class="active-filters" id="activeFilters"></div>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-container">
+                <div class="pagination-info" id="paginationInfo">
+                    Mostrando 0 - 0 di 0 contatti
+                </div>
+                <div class="pagination-controls">
+                    <div class="page-size-control">
+                        <label>Elementi per pagina:</label>
+                        <select id="pageSizeSelect">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <button class="btn" id="prevPageBtn" disabled title="Alt+←">‹ Precedente</button>
+                    <span id="pageIndicator">Pagina 1 di 1</span>
+                    <button class="btn" id="nextPageBtn" disabled title="Alt+→">Successiva ›</button>
+                </div>
+            </div>
+
+            <!-- ✅ TABELLA CORRETTA - Formato Originale -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h3 id="tableTitle">Contatti - Luglio 2025</h3>
+                </div>
+
+                <div id="emptyState" class="empty-state">
+                    <h3>Nessun contatto registrato</h3>
+                    <p>Clicca su "Nuovo Contatto" per iniziare</p>
+                </div>
+
+                <div class="table-wrapper" id="tableWrapper" style="display: none;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>N.</th>
+                                <th>Commerciale</th>
+                                <th>Modalità</th>
+                                <th>Cliente</th>
+                                <th>Luogo</th>
+                                <th>Data</th>
+                                <th>Tipo</th>
+                                <th>Progetto</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contactsTableBody">
+                            <!-- Righe generate dinamicamente da domManager.updateTable() -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Contact Modal -->
+            <div id="contactModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="modalTitle">Nuovo Contatto</h3>
+                        <button class="close" id="closeModal">&times;</button>
+                    </div>
+                    
+                    <form id="contactForm">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="commerciale">Commerciale *</label>
+                                <select id="commerciale" required>
+                                <option value="">Seleziona...</option>
+                                <option value="ALESSANDRO BACCO">ALESSANDRO BACCO</option>
+                                <option value="ANDREA">ANDREA</option>
+                                <option value="ANDREA/LUCA">ANDREA/LUCA</option>
+                                <option value="LUCA">LUCA</option>
+                                <option value="LUCA/MATTIA">LUCA/MATTIA</option>
+                                <option value="MATTIA">MATTIA</option>
+                                <option value="RENATO">RENATO</option>
+                                <option value="RENATO/LUCA">RENATO/LUCA</option>
+                                <option value="RENATO/MATTIA/LUCA">RENATO/MATTIA/LUCA</option>
+                                <option value="RENATO/SERENA">RENATO/SERENA</option>
+                                </select>
+                                <div class="error-message"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="modalitaComm">Modalità Comunicazione *</label>
+                                <select id="modalitaComm" required>
+                                    <option value="">Seleziona...</option>
+                                    <option value="CLIENTE">CLIENTE</option>
+                                    <option value="TELEFONATA">TELEFONATA</option>
+                                    <option value="EMAIL SALES">EMAIL SALES</option>
+                                    <option value="EMAIL INFO">EMAIL INFO</option>
+                                    <option value="SITO CEMI NETWORK">SITO CEMI NETWORK</option>
+                                    <option value="LANDING PAGE CEMI NETWORK">LANDING PAGE CEMI NETWORK</option>
+                                    <option value="SITO STEELA">SITO STEELA</option>
+                                    <option value="SITO CEMI COMPONENTS">SITO CEMI COMPONENTS</option>
+                                    <option value="SITO BSR ENGINEERING">SITO BSR ENGINEERING</option>
+                                    <option value="ARCHIEXPO">ARCHIEXPO</option>
+                                    <option value="PASSAGGIO IN SEDE ERACLEA">PASSAGGIO IN SEDE ERACLEA</option>
+                                    <option value="PASSAGGIO SEDE PORDENONE">PASSAGGIO SEDE PORDENONE</option>
+                                    <option value="PASSAGGIO SEDE BIBIONE">PASSAGGIO SEDE BIBIONE</option>
+                                    <option value="PASSAGGIO SEDE BERGAMO">PASSAGGIO SEDE BERGAMO</option>
+                                </select>
+                                <div class="error-message"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="nuovoCliente">Tipo Cliente *</label>
+                                <select id="nuovoCliente" required>
+                                    <option value="">Seleziona...</option>
+                                    <option value="true">Nuovo Cliente</option>
+                                    <option value="false">Cliente Esistente</option>
+                                </select>
+                                <div class="error-message"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="data">Data *</label>
+                                <input type="date" id="data" required>
+                                <div class="error-message"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="cliente">Cliente *</label>
+                                <input type="text" id="cliente" required placeholder="Nome azienda/cliente" maxlength="100">
+                                <div class="error-message"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="personaRif">Persona di Riferimento</label>
+                                <input type="text" id="personaRif" placeholder="Nome contatto" maxlength="100">
+                                <div class="error-message"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="luogo">Luogo *</label>
+                                <input type="text" id="luogo" required placeholder="Città" maxlength="100">
+                                <div class="error-message"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="provincia">Provincia</label>
+                                <input type="text" id="provincia" placeholder="Provincia/Stato" maxlength="50">
+                                <div class="error-message"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tipo">Tipo (BSR/SG/FM)</label>
+                                <select id="tipo">
+                                    <option value="">Seleziona...</option>
+                                    <option value="BSR">BSR</option>
+                                    <option value="SG">SG</option>
+                                    <option value="FM">FM</option>
+                                </select>
+                                <div class="error-message"></div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label for="rifProgetto">Riferimento Progetto *</label>
+                                <textarea id="rifProgetto" required placeholder="Descrizione del progetto..." rows="3" maxlength="500"></textarea>
+                                <div class="error-message"></div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label for="commenti">Commenti/Note</label>
+                                <textarea id="commenti" placeholder="Note aggiuntive, visite, follow-up..." rows="4" maxlength="1000"></textarea>
+                                <div class="error-message"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn" id="cancelBtn">Annulla</button>
+                            <button type="submit" class="btn btn-success" title="Ctrl+S">Salva Contatto</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ✅ DASHBOARD ANALYTICS CORRETTA -->
+            <div class="dashboard-container">
+                <div class="dashboard-header">
+                    <div class="dashboard-title">📊 Dashboard Analytics</div>
+                    <div class="dashboard-controls">
+                        <!-- <button class="btn btn-icon" id="refreshDashboard" title="Aggiorna dashboard">
+                            🔄 Aggiorna
+                        </button> -->
+                        <button class="btn btn-warning btn-icon" id="exportDashboard" title="Esporta dashboard">
+                            📊 Export PDF
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Statistics with Trends - 4 CARD ORIZZONTALI -->
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalContacts">0</div>
+                        <div class="stat-label">Contatti Totali</div>
+                        <div class="stat-trend neutral" id="totalTrend">→ 0%</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-value" id="newClients">0</div>
+                        <div class="stat-label">Nuovi Clienti</div>
+                        <div class="stat-trend neutral" id="newClientsTrend">→ 0%</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-value" id="existingClients">0</div>
+                        <div class="stat-label">Clienti Esistenti</div>
+                        <div class="stat-trend neutral" id="existingTrend">→ 0%</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-value" id="newClientRate">0%</div>
+                        <div class="stat-label">% Nuovi Clienti</div>
+                        <div class="stat-trend neutral" id="rateTrend">→ 0%</div>
+                    </div>
+                </div>
+
+                <!-- ✅ RIGA 1: 4 grafici orizzontali -->
+                <div class="charts-dashboard">
+                    <div class="chart-card">
+                        <div class="chart-title">Distribuzione Tipi Cliente</div>
+                        <div class="chart-container">
+                            <canvas id="clientTypeChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <div class="chart-title">Performance Commerciali</div>
+                        <div class="chart-container">
+                            <canvas id="commercialChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <div class="chart-title">Distribuzione Geografica</div>
+                        <div class="chart-container">
+                            <canvas id="geographicChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <div class="chart-title">Modalità Comunicazione</div>
+                        <div class="chart-container">
+                            <canvas id="modalityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ✅ RIGA 2: 3 grafici CENTRATI orizzontalmente -->
+                <div class="charts-row">
+                    <div class="chart-card">
+                        <div class="chart-title">Tasso Conversione</div>
+                        <div class="chart-container">
+                            <canvas id="conversionChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <div class="chart-title">Attività Settimanale</div>
+                        <div class="chart-container">
+                            <canvas id="weeklyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <div class="chart-title">Top 10 Clienti</div>
+                        <div class="chart-container">
+                            <canvas id="topClientsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trend Charts -->
+                <div class="chart-card">
+                    <div class="chart-title">Trend Mensile Contatti</div>
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Keyboard Shortcuts Help -->
+            <div id="shortcutsHelp" class="shortcuts-help" style="display: none;">
+                <div class="shortcuts-content">
+                    <h3>Scorciatoie da Tastiera</h3>
+                    <div class="shortcuts-list">
+                        <div class="shortcut-item">
+                            <div><kbd>Ctrl</kbd> + <kbd>N</kbd></div>
+                            <span>Nuovo contatto</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <div><kbd>Ctrl</kbd> + <kbd>F</kbd></div>
+                            <span>Focus ricerca</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <div><kbd>Ctrl</kbd> + <kbd>S</kbd></div>
+                            <span>Salva (nel modal)</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <div><kbd>Ctrl</kbd> + <kbd>E</kbd></div>
+                            <span>Export Excel</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <div><kbd>Ctrl</kbd> + <kbd>I</kbd></div>
+                            <span>Import file</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <div><kbd>Alt</kbd> + <kbd>←</kbd></div>
+                            <span>Pagina precedente</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <div><kbd>Alt</kbd> + <kbd>→</kbd></div>
+                            <span>Pagina successiva</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <div><kbd>Esc</kbd></div>
+                            <span>Chiudi modal</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-small" onclick="document.getElementById('shortcutsHelp').style.display='none'">Chiudi</button>
+                </div>
+            </div>
+
+            <!-- Help Button -->
+            <button class="help-button" onclick="document.getElementById('shortcutsHelp').style.display='block'" title="Mostra scorciatoie">
+                ?
+            </button>
+        </div>
+
+	<!-- Configurazione Firebase -->
+        <script>
+            // Configurazione Firebase dal tuo progetto
+            const firebaseConfig = {
+                apiKey: "AIzaSyCAJZQ-IbVYTrg-IJS2vZmzOJoXbHmxDQs",
+                authDomain: "registro-contatti-aziendali.firebaseapp.com",
+                projectId: "registro-contatti-aziendali",
+                storageBucket: "registro-contatti-aziendali.firebasestorage.app",
+                messagingSenderId: "883072749931",
+                appId: "1:883072749931:web:43785c1d6d090e301e3c2e"
+            };
+
+            // Inizializza Firebase
+            firebase.initializeApp(firebaseConfig);
+  
+            // Riferimenti globali
+            window.db = firebase.firestore();
+            window.auth = firebase.auth();
+        </script>
+
+        <!-- Tutti i sistemi base -->
+        <script src="js/utilityFunctions.js"></script>
+        <script src="js/systemInstances.js"></script>
+        <script src="js/domManager.js"></script>
+        <script src="js/firebaseManager.js"></script>
+        <script src="js/dataManager.js"></script>
+        <script src="js/contactManager.js"></script>
+        <script src="js/filterManager.js"></script>
+        <script src="js/chartManager.js"></script>
+        <script src="js/remainingManagers.js"></script>
+        <script src="js/main.js"></script>
+    </body>
+</html>
