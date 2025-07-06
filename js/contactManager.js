@@ -254,7 +254,7 @@ const contactManager = {
         });
         
         if (contact) {
-            // Compila form con dati esistenti
+            // MODALITÀ MODIFICA: Compila form con dati esistenti
             const formElements = {
                 commerciale: contact.commerciale || '',
                 modalitaComm: contact.modalitaComm || '',
@@ -274,16 +274,19 @@ const contactManager = {
                 if (element) element.value = value;
             });
         } else {
-            // Reset form per nuovo contatto
+            // MODALITÀ NUOVO CONTATTO
             domManager.elements.contactForm.reset();
             
-            // ⭐ IMPORTANTE: Per nuovo contatto, imposta la data del periodo attualmente visualizzato
-            const currentYear = domManager.elements.yearSelect.value;
-            const currentMonth = domManager.elements.monthSelect.value;
-            const currentDate = `${currentYear}-${currentMonth.padStart(2, '0')}-01`;
+            // ⭐ NUOVA LOGICA: Imposta la data odierna
+            const today = new Date();
+            const todayString = today.toISOString().split('T')[0]; // Formato YYYY-MM-DD
             
             const dataElement = document.getElementById('data');
-            if (dataElement) dataElement.value = currentDate;
+            if (dataElement) {
+                dataElement.value = todayString;
+            }
+            
+            console.log(`📅 Data odierna impostata automaticamente: ${todayString}`);
         }
         
         domManager.elements.modal.style.display = 'block';
